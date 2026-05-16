@@ -218,8 +218,8 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--gray-50);color:
   .view-cal{margin:-12px -12px 0;padding:10px 10px 24px}
 }
 .view{display:none;animation:fadeIn .3s ease}
-.view-cal{animation:none}
 .view.on{display:block}
+.view-cal.on{animation:none}
 
 /* ─── SECTION HEADERS ─── */
 .sec-head{margin-bottom:22px;display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px}
@@ -986,9 +986,8 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--gray-50);color:
           <div class="sec-title">Control semanal de fichajes</div>
           <div class="sec-sub" id="semanal-sub">Todos los empleados · semana actual</div>
         </div>
-        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-          <select class="sel" id="semanal-emp" onchange="renderSemanal()" style="min-width:180px">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <select class="sel" id="semanal-emp" onchange="renderSemanal()" style="min-width:160px">
             <option value="all">Todos los empleados</option>
           </select>
           <div class="semana-nav">
@@ -1006,6 +1005,20 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--gray-50);color:
       <div class="semana-resumen" id="semana-kpis"></div>
       <!-- Grid de días -->
       <div class="semana-grid" id="semana-grid"></div>
+      <!-- Tabla detalle fichajes semana -->
+      <div class="card" style="margin-top:18px">
+        <div style="font-size:14px;font-weight:700;color:var(--navy);margin-bottom:12px">Detalle de fichajes — edita haciendo clic en una fila</div>
+        <div style="overflow-x:auto">
+          <table class="tbl" id="semanal-tabla">
+            <thead><tr>
+              <th>Empleado</th><th>Fecha</th><th>Entrada</th><th>Salida</th><th>Horas</th><th>Extra</th><th>Tipo</th><th>Editar</th>
+            </tr></thead>
+            <tbody id="semanal-tabla-body">
+              <tr><td colspan="8" style="text-align:center;color:var(--gray-400);padding:24px">Sin fichajes esta semana</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
 
     <!-- ───── EMPLEADO: CALENDARIO ───── -->
@@ -2335,6 +2348,42 @@ function renderSemanal(){
     <div class="kpi"><div class="kpi-top"><div class="kpi-label">De baja</div><div class="kpi-dot" style="background:#F87171"></div></div>
       <div class="kpi-val">${EMP.filter(e=>e.baja).length}</div><div class="kpi-extra">Baja IT activa</div></div>
   `;
+
+  // Tabla detalle editable
+  const tbody = document.getElementById('semanal-tabla-body');
+  if(!tbody) return;
+  const filasFich = [];
+  for(let d=0;d<7;d++){
+    const dia=new Date(martes); dia.setDate(martes.getDate()+d);
+    const diaStr=fmtDate(dia);
+    empsVis.forEach(emp=>{
+      const fOut=FICHAJES.find(f=>f.empId===emp.id&&f.tipo==='out'&&f.durMin&&fmtDate(f.ts)===diaStr);
+      if(!fOut) return;
+      const fIn=FICHAJES.find(f=>f.empId===emp.id&&f.tipo==='in'&&fmtDate(f.ts)===diaStr);
+      const jornadaMin=minJornadaDia(emp.jor||1);
+      const extraMin=(fOut.durMin||0)-jornadaMin;
+      const hIn=fIn?[fIn.ts.getHours(),fIn.ts.getMinutes()].map(x=>String(x).padStart(2,'0')).join(':'):'—';
+      const hOut=[fOut.ts.getHours(),fOut.ts.getMinutes()].map(x=>String(x).padStart(2,'0')).join(':');
+      const hh2=Math.floor((fOut.durMin||0)/60),mm2=(fOut.durMin||0)%60;
+      const extraCls=extraMin>=0?'extra-positive':'extra-negative';
+      const extraTxt=(extraMin>=0?'+':'')+Math.floor(Math.abs(extraMin)/60)+'h'+String(Math.abs(extraMin)%60).padStart(2,'0')+'m';
+      const tipo=fOut.manual?'<span class="badge b-warn">Manual</span>':fOut.auto?'<span class="badge b-info">Auto</span>':'<span class="badge b-ok">Normal</span>';
+      const idx=FICHAJES.indexOf(fOut);
+      filasFich.push(`<tr style="cursor:pointer" onclick="openEditFich(${idx})">
+        <td><div style="display:flex;align-items:center;gap:8px"><div style="width:28px;height:28px;border-radius:7px;background:${emp.c};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:white;flex-shrink:0">${ini(emp.n)}</div><div><div style="font-weight:600;font-size:13px">${shortName(emp.n)}</div><div style="font-size:11px;color:var(--gray-400)">${emp.cat}</div></div></div></td>
+        <td>${diaStr}</td>
+        <td style="font-variant-numeric:tabular-nums;font-weight:600">${hIn}</td>
+        <td style="font-variant-numeric:tabular-nums;font-weight:600">${hOut}</td>
+        <td style="font-weight:700">${hh2}h ${String(mm2).padStart(2,'0')}m</td>
+        <td class="${extraCls}" style="font-weight:700">${extraTxt}</td>
+        <td>${tipo}</td>
+        <td><button class="btn btn-light" style="padding:5px 10px;font-size:11px" onclick="event.stopPropagation();openEditFich(${idx})">✏️ Editar</button></td>
+      </tr>`);
+    });
+  }
+  tbody.innerHTML = filasFich.length
+    ? filasFich.join('')
+    : '<tr><td colspan="8" style="text-align:center;color:var(--gray-400);padding:24px">Sin fichajes esta semana</td></tr>';
 }
 
 // ════════════════════════════════════════
